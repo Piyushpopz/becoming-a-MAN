@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Daily Grind – Habit Calendar</title>
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<style>
+  :root{color-scheme:dark;--bg:#07070a;--card:#111116;--line:#26262e;--red:#e11d2e;--red2:#ff3b4d;--txt:#f4f4f6;--mut:#8b8b98;
+    box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+  html{scroll-padding-top:env(safe-area-inset-top,0px)}
+  body{background:radial-gradient(900px 500px at 85% -10%,rgba(225,29,46,.22),transparent 60%),var(--bg);color:var(--txt);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:1rem}
+  .glitch{text-shadow:2px 0 var(--red),-2px 0 #00e5ff55}
+  .day{position:relative;aspect-ratio:1;border-radius:.6rem;border:1px solid var(--line);font-weight:600;overflow:hidden;
+    background:linear-gradient(to top,rgba(225,29,46,.6) var(--p,0%),#0c0c10 var(--p,0%));transition:border-color .2s,transform .2s}
+  .day:not(:disabled):hover{border-color:var(--red2);transform:translateY(-2px)}
+  .day:disabled{opacity:.25;cursor:not-allowed}
+  .day.today{box-shadow:0 0 0 1.5px var(--red2) inset}
+  .day.sel{border-color:#fff;box-shadow:0 0 14px var(--red)}
+  .day small{position:absolute;bottom:2px;left:0;right:0;font-size:.6rem;font-weight:500;opacity:.8}
+  .habit{display:flex;align-items:center;gap:.75rem;width:100%;padding:.7rem .9rem;border-radius:.75rem;border:1px solid var(--line);background:#0c0c10;text-align:left;transition:border-color .2s,background .2s}
+  .habit:hover{border-color:var(--red)}
+  .habit .box{width:1.5rem;height:1.5rem;border-radius:.4rem;border:2px solid #444;display:grid;place-items:center;flex:none;transition:.2s}
+  .habit.on{background:rgba(225,29,46,.14);border-color:var(--red)}
+  .habit.on .box{background:var(--red);border-color:var(--red)}
+  .habit .box svg{opacity:0;width:1rem;height:1rem}
+  .habit.on .box svg{opacity:1}
+  textarea{background:#0c0c10;border:1px solid var(--line);border-radius:.75rem;color:var(--txt);resize:none;width:100%;padding:.8rem;outline:none}
+  textarea:focus{border-color:var(--red)}
+  .btn{background:var(--red);border-radius:.7rem;font-weight:700;padding:.6rem 1.2rem;transition:.2s}
+  .btn:hover{background:var(--red2)}
+  .nav{border:1px solid var(--line);border-radius:.6rem;padding:.35rem .8rem}
+  .nav:hover{border-color:var(--red)}
+</style>
+</head>
+<body>
+<main class="w-full max-w-2xl mx-auto p-4 sm:p-6 grid grid-cols-1 gap-5">
+
+  <header class="flex items-end justify-between">
+    <div>
+      <h1 class="text-3xl sm:text-4xl font-black tracking-tight glitch">DAILY <span style="color:var(--red2)">GRIND</span></h1>
+      <p class="text-sm" style="color:var(--mut)">Five habits. One day at a time. Leap.</p>
+    </div>
+    <div class="text-right">
+      <div class="text-xs uppercase tracking-widest" style="color:var(--mut)">Streak</div>
+      <div id="streak" class="text-2xl font-black" style="color:var(--red2)">0</div>
+    </div>
+  </header>
+
+  <!-- Calendar -->
+  <section class="card p-4 sm:p-5">
+    <div class="flex items-center justify-between mb-4">
+      <button id="prev" class="nav" aria-label="Previous month">‹</button>
+      <div class="text-center">
+        <h2 id="monthLabel" class="font-bold text-lg"></h2>
+        <p id="monthAvg" class="text-xs" style="color:var(--mut)"></p>
+      </div>
+      <button id="next" class="nav" aria-label="Next month">›</button>
+    </div>
+    <div class="grid grid-cols-7 gap-1.5 text-center text-[11px] mb-1.5" style="color:var(--mut)">
+      <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
+    </div>
+    <div id="grid" class="grid grid-cols-7 gap-1.5"></div>
+  </section>
+
+  <!-- Day popup -->
+  <div id="modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4" style="background:rgba(0,0,0,.78);backdrop-filter:blur(4px)" role="dialog" aria-modal="true" aria-labelledby="dayLabel">
+  <section class="card p-4 sm:p-5 flex flex-col gap-4 w-full max-w-md max-h-full overflow-y-auto" id="panel" style="box-shadow:0 0 40px rgba(225,29,46,.25)">
+    <div class="flex items-start justify-between gap-3">
+      <div>
+        <h2 id="dayLabel" class="font-bold text-lg"></h2>
+        <p class="text-xs" style="color:var(--mut)">Tick what you did. Saves automatically.</p>
+      </div>
+      <button id="close" class="nav text-xl leading-none" aria-label="Close" style="padding:.3rem .7rem">✕</button>
+    </div>
+
+    <div>
+      <div class="flex justify-between text-sm mb-1.5">
+        <span style="color:var(--mut)">Day score</span>
+        <span id="pct" class="font-black" style="color:var(--red2)">0%</span>
+      </div>
+      <div class="h-3 rounded-full overflow-hidden" style="background:#1c1c24">
+        <div id="bar" class="h-full rounded-full" style="width:0;background:linear-gradient(90deg,#8f0f1c,var(--red2));box-shadow:0 0 12px var(--red)"></div>
+      </div>
+    </div>
+
+    <div id="habits" class="flex flex-col gap-2"></div>
+
+    <div>
+      <div class="flex justify-between text-xs mb-1.5" style="color:var(--mut)">
+        <label for="journal">Journal (optional, ~50–80 words)</label>
+        <span id="words">0 words</span>
+      </div>
+      <textarea id="journal" rows="4" placeholder="How was your day?"></textarea>
+    </div>
+
+    <div class="flex items-center gap-3">
+      <button id="save" class="btn">Save</button>
+      <span id="saved" class="text-sm opacity-0" style="color:var(--red2)">Saved ✓</span>
+    </div>
+  </section>
+  </div>
+</main>
+
+<script>
+(() => {
+  const HABITS = ['☀️ Got sunlight', '🥩 Got protein', '🏋️ Workout / rest day', '📚 Studied', '📖 Read 5+ pages'];
+  const SCORE = [0, 15, 25, 50, 75, 100];   // % for 0..5 ticks
+  const KEY = 'daily-grind-v1';
+  const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+  const $ = id => document.getElementById(id);
+  const pad = n => String(n).padStart(2, '0');
+  const keyOf = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const todayKey = () => keyOf(new Date());
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---------- storage ---------- */
+  function load() {
+    const out = {};
+    try {
+      const raw = JSON.parse(localStorage.getItem(KEY));
+      if (raw && typeof raw === 'object') {
+        for (const [k, v] of Object.entries(raw)) {
+          if (DATE_RE.test(k) && v && Array.isArray(v.h))
+            out[k] = { h: HABITS.map((_, i) => v.h[i] ? 1 : 0), j: typeof v.j === 'string' ? v.j : '' };
+        }
+      }
+    } catch (e) { console.error('Load failed', e); }
+    return out;
+  }
+  function persist() {
+    try { localStorage.setItem(KEY, JSON.stringify(data)); return true; }
+    catch (e) { console.error('Save failed', e); return false; }
+  }
+  let data = load();
+  const entry = k => data[k] || (data[k] = { h: [0, 0, 0, 0, 0], j: '' });
+  const pctOf = k => data[k] ? SCORE[data[k].h.reduce((a, b) => a + b, 0)] : 0;
+
+  /* ---------- state ---------- */
+  let sel = null;
+  const t = new Date();
+  let view = new Date(t.getFullYear(), t.getMonth(), 1);
+  const shown = { v: 0 };
+  const modal = $('modal');
+
+  /* ---------- calendar ---------- */
+  function renderStreak() {
+    let s = 0;
+    const d = new Date();
+    if (!pctOf(keyOf(d))) d.setDate(d.getDate() - 1);   // an open today doesn't break the streak
+    while (pctOf(keyOf(d)) > 0) { s++; d.setDate(d.getDate() - 1); }
+    $('streak').textContent = `${s} 🔥`;
+  }
+
+  function renderMonthAvg() {
+    const y = view.getFullYear(), m = view.getMonth(), days = new Date(y, m + 1, 0).getDate(), tk = todayKey();
+    let sum = 0, n = 0;
+    for (let d = 1; d <= days; d++) {
+      const k = `${y}-${pad(m + 1)}-${pad(d)}`;
+      if (k <= tk) { sum += pctOf(k); n++; }
+    }
+    $('monthAvg').textContent = n ? `Month average: ${Math.round(sum / n)}%` : '';
+  }
+
+  function renderCalendar(animate = true) {
+    const y = view.getFullYear(), m = view.getMonth(), tk = todayKey();
+    const first = new Date(y, m, 1).getDay(), days = new Date(y, m + 1, 0).getDate();
+    let html = '<span></span>'.repeat(first);
+    for (let d = 1; d <= days; d++) {
+      const k = `${y}-${pad(m + 1)}-${pad(d)}`, p = pctOf(k);
+      html += `<button class="day${k === tk ? ' today' : ''}${k === sel ? ' sel' : ''}" data-k="${k}" style="--p:${p}%"${k > tk ? ' disabled' : ''}>${d}${p ? `<small>${p}%</small>` : ''}</button>`;
+    }
+    $('monthLabel').textContent = view.toLocaleString('en', { month: 'long', year: 'numeric' });
+    $('grid').innerHTML = html;
+    renderMonthAvg();
+    renderStreak();
+    if (animate && !reduced)
+      gsap.from('#grid .day', { opacity: 0, y: 10, scale: .9, duration: .35, stagger: .012, ease: 'power2.out', clearProps: 'transform,opacity' });
+  }
+
+  function refreshCell() {
+    const b = document.querySelector(`.day[data-k="${sel}"]`);
+    if (b) {
+      const p = pctOf(sel);
+      b.style.setProperty('--p', p + '%');
+      b.querySelector('small')?.remove();
+      if (p) b.insertAdjacentHTML('beforeend', `<small>${p}%</small>`);
+    }
+    renderMonthAvg();
+    renderStreak();
+  }
+
+  /* ---------- day popup ---------- */
+  function updateBar() {
+    const p = pctOf(sel);
+    if (reduced) { $('bar').style.width = p + '%'; $('pct').textContent = p + '%'; return; }
+    gsap.to('#bar', { width: p + '%', duration: .6, ease: 'power3.out', overwrite: true });
+    gsap.to(shown, { v: p, duration: .6, ease: 'power3.out', overwrite: true, onUpdate: () => { $('pct').textContent = Math.round(shown.v) + '%'; } });
+  }
+
+  function updateWords() {
+    const n = $('journal').value.trim().split(/\s+/).filter(Boolean).length;
+    $('words').textContent = `${n} word${n === 1 ? '' : 's'}`;
+    $('words').style.color = n > 80 ? 'var(--red2)' : '';
+  }
+
+  function renderPanel() {
+    const e = data[sel] || { h: [0, 0, 0, 0, 0], j: '' };
+    const [y, m, d] = sel.split('-').map(Number);
+    $('dayLabel').textContent = (sel === todayKey() ? 'Today · ' : '') + new Date(y, m - 1, d).toLocaleDateString('en', { weekday: 'long', day: 'numeric', month: 'long' });
+    $('habits').innerHTML = HABITS.map((h, i) => `
+      <button class="habit${e.h[i] ? ' on' : ''}" data-i="${i}" role="checkbox" aria-checked="${!!e.h[i]}">
+        <span class="box"><svg viewBox="0 0 20 20" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10l4 4 8-9"/></svg></span>
+        <span>${h}</span>
+      </button>`).join('');
+    $('journal').value = e.j;
+    $('saved').style.opacity = 0;
+    updateWords();
+    updateBar();
+    if (!reduced) gsap.from('.habit', { opacity: 0, x: 16, duration: .35, stagger: .06, ease: 'power2.out', clearProps: 'transform,opacity' });
+  }
+
+  function openModal(k) {
+    sel = k;
+    document.querySelectorAll('.day').forEach(b => b.classList.toggle('sel', b.dataset.k === k));
+    renderPanel();
+    modal.classList.remove('hidden'); modal.classList.add('flex');
+    document.body.style.overflow = 'hidden';
+    if (!reduced) {
+      gsap.fromTo(modal, { opacity: 0 }, { opacity: 1, duration: .2 });
+      gsap.fromTo('#panel', { y: 30, scale: .92, opacity: 0 }, { y: 0, scale: 1, opacity: 1, duration: .4, ease: 'back.out(1.6)' });
+    }
+  }
+
+  function closeModal() {
+    if (modal.classList.contains('hidden')) return;
+    const done = () => { modal.classList.add('hidden'); modal.classList.remove('flex'); document.body.style.overflow = ''; };
+    reduced ? done() : gsap.to(modal, { opacity: 0, duration: .2, onComplete: done });
+  }
+
+  function flash(ok) {
+    const el = $('saved');
+    el.textContent = ok ? 'Saved ✓' : 'Couldn’t save – browser storage is blocked';
+    if (reduced) { el.style.opacity = 1; return; }
+    gsap.killTweensOf(el);
+    gsap.fromTo(el, { opacity: 1, y: 0 }, { opacity: 0, y: -4, delay: 1.4, duration: .5 });
+  }
+
+  /* ---------- events ---------- */
+  $('grid').addEventListener('click', e => {
+    const b = e.target.closest('.day');
+    if (b && !b.disabled) openModal(b.dataset.k);
+  });
+
+  $('habits').addEventListener('click', e => {
+    const b = e.target.closest('.habit');
+    if (!b) return;
+    const en = entry(sel), i = +b.dataset.i;
+    en.h[i] = en.h[i] ? 0 : 1;
+    b.classList.toggle('on', !!en.h[i]);
+    b.setAttribute('aria-checked', !!en.h[i]);
+    if (!reduced) gsap.fromTo(b.querySelector('.box'), { scale: .6 }, { scale: 1, duration: .4, ease: 'back.out(3)' });
+    if (!persist()) flash(false);
+    updateBar();
+    refreshCell();
+  });
+
+  $('journal').addEventListener('input', () => {
+    updateWords();
+    entry(sel).j = $('journal').value;
+    persist();
+  });
+
+  $('save').addEventListener('click', () => {
+    entry(sel).j = $('journal').value;
+    flash(persist());
+    if (!reduced) gsap.fromTo('#save', { scale: .94 }, { scale: 1, duration: .35, ease: 'back.out(3)' });
+  });
+
+  $('close').addEventListener('click', closeModal);
+  modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+  const shift = n => { view = new Date(view.getFullYear(), view.getMonth() + n, 1); renderCalendar(); };
+  $('prev').addEventListener('click', () => shift(-1));
+  $('next').addEventListener('click', () => shift(1));
+
+  /* ---------- init ---------- */
+  renderCalendar();
+  if (!reduced) gsap.from('header', { opacity: 0, y: -14, duration: .6, ease: 'power2.out', clearProps: 'transform,opacity' });
+})();
+</script>
+</body>
+</html>
